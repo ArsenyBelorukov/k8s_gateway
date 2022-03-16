@@ -21,7 +21,7 @@ type resourceWithIndex struct {
 
 var noop lookupFunc = func([]string) (result []net.IP) { return }
 
-var orderedResources = []*resourceWithIndex{
+var orderedResources = resourcesWithIndex{
 	{
 		name:   "HTTPRoute",
 		lookup: noop,
@@ -48,11 +48,13 @@ var (
 	defaultSecondNS   = ""
 )
 
+type resourcesWithIndex []*resourceWithIndex
+
 // Gateway stores all runtime configuration of a plugin
 type Gateway struct {
 	Next             plugin.Handler
 	Zones            []string
-	Resources        []*resourceWithIndex
+	Resources        resourcesWithIndex
 	ttlLow           uint32
 	ttlSOA           uint32
 	Controller       *KubeController
@@ -61,6 +63,7 @@ type Gateway struct {
 	secondNS         string
 	configFile       string
 	configContext    string
+	readiness        bool
 	ExternalAddrFunc func(request.Request) []dns.RR
 
 	Fall fall.F
@@ -72,9 +75,19 @@ func newGateway() *Gateway {
 		ttlLow:     ttlDefault,
 		ttlSOA:     ttlSOA,
 		apex:       defaultApex,
+		readiness:  true,
 		secondNS:   defaultSecondNS,
 		hostmaster: defaultHostmaster,
 	}
+}
+
+func (rs resourcesWithIndex) lookupResource(resource string) *resourceWithIndex {
+	for _, r := range rs {
+		if r.name == resource {
+			return r
+		}
+	}
+	return nil
 }
 
 func lookupResource(resource string) *resourceWithIndex {
@@ -89,7 +102,7 @@ func lookupResource(resource string) *resourceWithIndex {
 
 func (gw *Gateway) updateResources(newResources []string) {
 
-	gw.Resources = []*resourceWithIndex{}
+	gw.Resources = resourcesWithIndex{}
 
 	for _, name := range newResources {
 		if resource := lookupResource(name); resource != nil {

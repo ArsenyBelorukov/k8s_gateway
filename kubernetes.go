@@ -43,7 +43,7 @@ type KubeController struct {
 	hasSynced   bool
 }
 
-func newKubeController(ctx context.Context, c *kubernetes.Clientset, gw *gatewayClient.Clientset, nc *k8s_nginx.Clientset) *KubeController {
+func newKubeController(ctx context.Context, c *kubernetes.Clientset, gw *gatewayClient.Clientset, nc *k8s_nginx.Clientset, resources resourcesWithIndex) *KubeController {
 
 	log.Infof("Building k8s_gateway controller")
 
@@ -54,7 +54,7 @@ func newKubeController(ctx context.Context, c *kubernetes.Clientset, gw *gateway
 	}
 
 	if existGatewayCRDs(ctx, gw) {
-		if resource := lookupResource("HTTPRoute"); resource != nil {
+		if resource := resources.lookupResource("HTTPRoute"); resource != nil {
 			gatewayController := cache.NewSharedIndexInformer(
 				&cache.ListWatch{
 					ListFunc:  gatewayLister(ctx, ctrl.gwClient, core.NamespaceAll),
@@ -81,7 +81,7 @@ func newKubeController(ctx context.Context, c *kubernetes.Clientset, gw *gateway
 	}
 
 	if existVirtualServerCRDs(ctx, nc) {
-		if resource := lookupResource("VirtualServer"); resource != nil {
+		if resource := resources.lookupResource("VirtualServer"); resource != nil {
 			virtualServerController := cache.NewSharedIndexInformer(
 				&cache.ListWatch{
 					ListFunc:  virtualServerLister(ctx, ctrl.nginxClient, core.NamespaceAll),
@@ -96,7 +96,7 @@ func newKubeController(ctx context.Context, c *kubernetes.Clientset, gw *gateway
 		}
 	}
 
-	if resource := lookupResource("Ingress"); resource != nil {
+	if resource := resources.lookupResource("Ingress"); resource != nil {
 		ingressController := cache.NewSharedIndexInformer(
 			&cache.ListWatch{
 				ListFunc:  ingressLister(ctx, ctrl.client, core.NamespaceAll),
@@ -110,7 +110,7 @@ func newKubeController(ctx context.Context, c *kubernetes.Clientset, gw *gateway
 		ctrl.controllers = append(ctrl.controllers, ingressController)
 	}
 
-	if resource := lookupResource("Service"); resource != nil {
+	if resource := resources.lookupResource("Service"); resource != nil {
 		serviceController := cache.NewSharedIndexInformer(
 			&cache.ListWatch{
 				ListFunc:  serviceLister(ctx, ctrl.client, core.NamespaceAll),
@@ -176,7 +176,7 @@ func (gw *Gateway) RunKubeController(ctx context.Context) error {
 		return err
 	}
 
-	gw.Controller = newKubeController(ctx, kubeClient, gwAPIClient, nginxClient)
+	gw.Controller = newKubeController(ctx, kubeClient, gwAPIClient, nginxClient, gw.Resources)
 	go gw.Controller.run()
 
 	return nil

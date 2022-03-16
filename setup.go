@@ -93,6 +93,17 @@ func parse(c *caddy.Controller) (*Gateway, error) {
 					return nil, c.ArgErr()
 				}
 				gw.apex = args[0]
+			case "readiness":
+				args := c.RemainingArgs()
+				if len(args) == 0 {
+					gw.readiness = true
+				} else if args[0] == "true" || args[0] == "on" {
+					gw.readiness = true
+				} else if args[0] == "false" || args[0] == "off" {
+					gw.readiness = false
+				} else {
+					return nil, c.Errf("Incorrectly formated 'readiness' parameter (true/on/false/off)")
+				}
 			case "kubeconfig":
 				args := c.RemainingArgs()
 				if len(args) == 0 {
